@@ -1,4 +1,4 @@
-// C program to demonstrate use of fork() and pipe() 
+ C program to demonstrate use of fork() and pipe() 
 #include<stdio.h> 
 #include<stdlib.h> 
 #include<unistd.h> 
