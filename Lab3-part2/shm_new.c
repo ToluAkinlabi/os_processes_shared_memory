@@ -1,211 +1,114 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+//Collaborated with Onyinyechukwu Ogbunaya
 
-// Structure declaration
-struct acc_type
-{
-char bank_name[20];
-char bank_branch[20];
-char acc_holder_name[30];
-int acc_number;
-char acc_holder_address[100];
-float available_balance;
-};
-struct acc_type account[20];
+#include  <stdio.h>
+#include  <stdlib.h>
+#include  <sys/types.h>
+#include  <sys/ipc.h>
+#include  <sys/shm.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <time.h>
 
-/*
-printf("The above structure can be declared using
-typedef like below");
+enum AccountOrTurn {BANK_ACCOUNT = 0, TURN =  1};
 
-typedef struct acc_type
-{
-char bank_name[20];
-char bank_branch[20];
-char acc_holder_name[30];
-int acc_number;
-char acc_holder_address[100];
-float available_balance;
-}Acc_detail;
+void ClientProcess(int[]);
 
-Acc_detail account[20];
-*/
+int main(int argc, char * argv[]) {
+  int ShmID;
+  int *ShmPTR;
+  pid_t pid;
+  int status;
 
-int num_acc;
+  time_t t;
+  srandom((unsigned) time( & t));
 
-void Create_new_account();
-void Cash_Deposit();
-void Cash_withdrawl();
-void Account_information();
-void Log_out();
-void display_options();
+  ShmID = shmget(IPC_PRIVATE, 2 * sizeof(int), IPC_CREAT | 0666);
+  if (ShmID < 0) {
+    printf("*** shmget error (server) ***\n");
+    exit(1);
+  }
 
-/* main program */
-int main()
-{
-char option;
-num_acc=0;
-while(1)
-{
-printf("\n***** Welcome to Bank Application (Operating Systems Lab) *****\n");
-display_options();
-printf("Please enter any options (1/2/3/4/5/6) ");
-printf("to continue : ");
+  ShmPTR = (int * ) shmat(ShmID, NULL, 0);
+  if ( * ShmPTR == -1) {
+    printf("*** shmat error (server) ***\n");
+    exit(1);
+  }
+  
 
-option = getchar();
-printf("%c \n", option);
-switch(option)
-{
-case '1': Create_new_account();
-break;
-case '2': Cash_Deposit();
-break;
-case '3': Cash_withdrawl();
-break;
-case '4': Account_information();
-break;
-case '5': return 0;
-case '6': system("cls");
-break;
-default : system("cls");
-printf("Please enter one of the options");
-printf("(1/2/3/4/5/6) to continue \n ");
-break;
-}
-}
-return 0;
-}
+  ShmPTR[BANK_ACCOUNT] = 0;
+  ShmPTR[TURN] = 0;
 
-/*Function to display available options in this application*/
+  pid = fork();
+  if (pid < 0) {
+    exit(1);
+  } else if (pid == 0) {
+    ClientProcess(ShmPTR);
+    exit(0);
+  }
+  
+  // parent process continues
+  int account;
+  int balance;
+  int i;
 
-void display_options()
-{
-printf("\n1. Create new account \n");
-printf("2. Cash Deposit \n");
-printf("3. Cash withdrawl \n");
-printf("4. Account information \n");
-printf("5. Log out \n");
-printf("6. Clear the screen and display available ");
-printf("options \n\n");
+  for (i = 0; i < 25; ++i) {
+
+    sleep(random() % 6);
+
+    account = ShmPTR[BANK_ACCOUNT];
+    while (ShmPTR[TURN] != 0) {}
+
+    if (account <= 100) {
+    
+      balance = random() % 101;
+
+      if (balance % 2 == 0) {
+        account += balance;
+        printf("Dear old Dad: Deposits $%d / Balance = $%d\n", balance, account);
+      } else {
+        printf("Dear old Dad: Doesn't have any money to give\n");
+      }
+    } else {
+      printf("Dear old Dad: Thinks Student has enough Cash ($%d)\n", account);
+    }
+    
+    ShmPTR[BANK_ACCOUNT] = account;
+    ShmPTR[TURN] = 1;
+  }
+
+  wait( & status);
+  printf("Server has detected the completion of its child...\n");
+  shmdt((void * ) ShmPTR);
+  printf("Server has detached its shared memory...\n");
+  shmctl(ShmID, IPC_RMID, NULL);
+  printf("Server has removed its shared memory...\n");
+  printf("Server exits...\n");
+  exit(0);
 }
 
-/* Function to create new account */
+void ClientProcess(int SharedMem[]) {
+  int account;
+  int balance;
+  int i;
 
-void Create_new_account()
-{
-char bank_name[20];
-char bank_branch[20];
-char acc_holder_name[30];
-int acc_number;
-char acc_holder_address[100];
-float available_balance = 0;
-fflush(stdin);
-printf("\nEnter the bank name : ");
-scanf("%s", bank_name);
-printf("\nEnter the bank branch : ");
-scanf("%s", bank_branch);
-printf("\nEnter the account holder name : ");
-scanf("%s", acc_holder_name);
-printf("\nEnter the account number(1 to 10): ");
-scanf("%d", &acc_number);
-printf("\nEnter the account holder address : ");
-scanf("%s", acc_holder_address);
-
-strcpy(account[acc_number-1].bank_name,bank_name);
-strcpy(account[acc_number-1].bank_branch,bank_branch);
-strcpy(account[acc_number-1].acc_holder_name,
-acc_holder_name);
-account[acc_number-1].acc_number=acc_number;
-strcpy(account[acc_number-1].acc_holder_address,
-acc_holder_address);
-account[acc_number-1].available_balance=available_balance;
-
-printf("\nAccount has been created successfully \n\n");
-printf("Bank name : %s \n" ,
-account[acc_number-1].bank_name);
-printf("Bank branch : %s \n" ,
-account[acc_number-1].bank_branch);
-printf("Account holder name : %s \n" ,
-account[acc_number-1].acc_holder_name);
-printf("Account number : %d \n" ,
-account[acc_number-1].acc_number);
-printf("Account holder address : %s \n" ,
-account[acc_number-1].acc_holder_address);
-printf("Available balance : %f \n" ,
-account[acc_number-1].available_balance);
-
-//num_acc++;
-
-}
-
-// Displaying account informations
-
-void Account_information()
-{
-register int num_acc = 0;
-//if (!strcmp(customer,account[count].name))
-while(strlen(account[num_acc].bank_name)>0)
-{
-printf("\nBank name : %s \n" ,
-account[num_acc].bank_name);
-printf("Bank branch : %s \n" ,
-account[num_acc].bank_branch);
-printf("Account holder name : %s \n" ,
-account[num_acc].acc_holder_name);
-printf("Account number : %d \n" ,
-account[num_acc].acc_number);
-printf("Account holder address : %s \n" ,
-account[num_acc].acc_holder_address);
-printf("Available balance : %f \n\n" ,
-account[num_acc].available_balance);
-num_acc++;
-}
-}
-
-// Function to deposit amount in an account
-
-void Cash_Deposit()
-{
-auto int acc_no;
-float add_money;
-
-printf("Enter account number you want to deposit money:");
-scanf("%d",&acc_no);
-printf("\nThe current balance for account %d is %f \n",
-acc_no, account[acc_no-1].available_balance);
-printf("\nEnter money you want to deposit : ");
-scanf("%f",&add_money);
-
-while (acc_no==account[acc_no-1].acc_number)
-{
-account[acc_no-1].available_balance=
-account[acc_no-1].available_balance+add_money;
-printf("\nThe New balance for account %d is %f \n",
-acc_no, account[acc_no-1].available_balance);
-break;
-}acc_no++;
-}
-
-// Function to withdraw amount from an account
-
-void Cash_withdrawl()
-{
-auto int acc_no;
-float withdraw_money;
-
-printf("Enter account number you want to withdraw money:");
-scanf("%d",&acc_no);
-printf("\nThe current balance for account %d is %f \n",
-acc_no, account[acc_no-1].available_balance);
-printf("\nEnter money you want to withdraw from account ");
-scanf("%f",&withdraw_money);
-
-while (acc_no==account[acc_no-1].acc_number)
-{
-account[acc_no-1].available_balance=
-account[acc_no-1].available_balance-withdraw_money;
-printf("\nThe New balance for account %d is %f \n",
-acc_no, account[acc_no-1].available_balance);
-break;
-}acc_no++;
+  for (i = 0; i < 25; ++i) {
+    sleep(random() % 6);
+    
+    account = SharedMem[BANK_ACCOUNT];
+    while (SharedMem[TURN] != 1) {}
+    
+    balance = random() % 51;
+    
+    printf("Poor Student needs $%d\n", balance);
+    
+    if (balance <= account) {
+      account -= balance;
+      printf("Poor Student: Withdraws $%d / Balance = $%d\n", balance, account);
+    } else {
+      printf("Poor Student: Not Enough Cash ($%d)\n", account );
+    }
+    
+    SharedMem[BANK_ACCOUNT] = account;
+    SharedMem[TURN] = 0;
+  }
 }
